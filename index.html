@@ -255,22 +255,33 @@
       position: absolute; inset: 0; z-index: 0;
     }
 
-    /* Video layer */
+    /* ─── VIDEO LAYER (Vimeo + MP4 fallback) ─── */
     .hero-video-wrap {
       position: absolute; inset: 0; z-index: 1;
       overflow: hidden;
     }
+
+    /* Vimeo iframe — covers viewport like YouTube approach */
     .hero-video-wrap iframe {
       position: absolute;
       top: 50%; left: 50%;
-      width: 100vw; height: 56.25vw; /* 16:9 */
+      width: 100vw; height: 56.25vw;
       min-height: 100vh;
       min-width: 177.78vh;
       transform: translate(-50%, -50%);
       pointer-events: none;
       border: none;
     }
-    /* Fallback image if iframe fails */
+
+    /* Direct <video> fallback shown when Vimeo isn't available */
+    .hero-video-wrap video.hero-mp4 {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: none; /* shown by JS if iframe fails */
+    }
+
+    /* Static image fallback (always behind) */
     .hero-video-fallback {
       position: absolute; inset: 0;
       background:
@@ -278,6 +289,8 @@
         url('https://images.unsplash.com/photo-1540962351504-03099e0a754b?w=1920&h=1080&fit=crop&q=90') center/cover no-repeat;
       z-index: 0;
     }
+
+    /* Dark overlay gradient */
     .hero-video-wrap::after {
       content: ''; position: absolute; inset: 0; z-index: 2;
       background: linear-gradient(
@@ -485,7 +498,6 @@
       position: absolute; top: 0; left: 0; right: 0; height: 1px;
       background: linear-gradient(90deg, transparent, rgba(201,168,76,.35), transparent);
     }
-    /* Background decorative number */
     #features::after {
       content: 'III';
       position: absolute; right: -2%; top: 50%; transform: translateY(-50%);
@@ -587,7 +599,6 @@
       transform: scale(1.08);
       filter: brightness(1) saturate(1.1);
     }
-    /* Shimmer sweep on hover */
     .fleet-img::before {
       content: ''; position: absolute; inset: 0; z-index: 2;
       background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.08) 50%, transparent 70%);
@@ -955,9 +966,6 @@
     #toast p { font-family: var(--f-body); font-size: .9rem; color: var(--c-ivory-0); }
     #toast strong { color: var(--c-gold-3); }
 
-    /* ─── ANIMATED COUNTER ─────────────────────── */
-    .count-up { display: inline-block; }
-
     /* ─── LOADING SCREEN ───────────────────────── */
     #loader {
       position: fixed; inset: 0; z-index: 99999;
@@ -983,9 +991,7 @@
       transform: translateX(-100%);
       animation: loadBar 1.5s var(--ease-expo) forwards;
     }
-    @keyframes loadBar {
-      to { transform: translateX(0); }
-    }
+    @keyframes loadBar { to { transform: translateX(0); } }
     .loader-sub {
       font-family: var(--f-ui);
       font-size: .6rem; font-weight: 400; letter-spacing: .55em;
@@ -1074,18 +1080,54 @@
   <section id="hero">
     <canvas id="hero-canvas"></canvas>
 
-    <!-- Video Hero using Pixabay embed -->
-    <div class="hero-video-wrap">
+    <!--
+      VIDEO STRATEGY (non-YouTube, three-tier fallback):
+      1. Vimeo embed  — autoplay, muted, loop, no controls
+      2. Direct MP4   — Mixkit free-stock aerial/aviation clips
+      3. Static image — Unsplash fallback (always rendered behind)
+    -->
+    <div class="hero-video-wrap" id="heroVideoWrap">
+
+      <!-- Static fallback is always present as the bottom layer -->
       <div class="hero-video-fallback"></div>
-      <!-- YouTube embed - helicopter/aviation footage -->
+
+      <!--
+        Tier 1: Vimeo background player
+        Video: "Helicopter Flying Over Mountains" by Chris Herber (CC0 / Vimeo)
+        ID 459389137 — aerial mountain helicopter footage
+        Parameters: autoplay=1, muted=1, loop=1, background=1 hides all chrome
+      -->
       <iframe
-        src="https://www.youtube.com/embed/7qqYam-A368?autoplay=1&mute=1&loop=1&playlist=7qqYam-A368&controls=0&showinfo=0&rel=0&disablekb=1&modestbranding=1&iv_load_policy=3&playsinline=1"
-        title="YouTube video player"
-        allow="autoplay; encrypted-media"
+        id="vimeoFrame"
+        src="https://player.vimeo.com/video/459389137?autoplay=1&muted=1&loop=1&background=1&quality=1080p"
+        allow="autoplay; fullscreen; picture-in-picture"
         allowfullscreen
         loading="lazy"
+        title="Aerial helicopter footage"
       ></iframe>
-    </div>
+
+      <!--
+        Tier 2: Direct MP4 from Mixkit (free stock, no auth required).
+        Shown by JS if the Vimeo iframe fails to load within 6 s.
+        Multiple sources for best codec support.
+      -->
+      <video
+        class="hero-mp4"
+        id="heroMp4"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="none"
+      >
+        <!-- Aerial sunset city flyover — Mixkit free licence -->
+        <source src="https://cdn.mixkit.co/videos/preview/mixkit-aerial-view-of-a-city-at-dusk-41544-large.mp4" type="video/mp4" />
+        <!-- Secondary: aerial mountain landscape -->
+        <source src="https://cdn.mixkit.co/videos/preview/mixkit-aerial-shot-of-a-mountain-pass-4774-large.mp4" type="video/mp4" />
+      </video>
+
+    </div><!-- /.hero-video-wrap -->
+
     <div class="grain-overlay"></div>
     <div class="hero-accent-line"></div>
 
@@ -1621,7 +1663,6 @@ window.addEventListener('load', () => {
 const dot = document.getElementById('cursor-dot');
 const ring = document.getElementById('cursor-ring');
 let mx = 0, my = 0, rx = 0, ry = 0;
-
 document.addEventListener('mousemove', e => {
   mx = e.clientX; my = e.clientY;
   dot.style.left = mx + 'px';
@@ -1638,6 +1679,48 @@ document.querySelectorAll('a, button, .fleet-card, .feat-card, .testi-card, .btn
   el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
   el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
 });
+
+/* ── VIDEO FALLBACK LOGIC ────────────────────────────────────────────
+   If the Vimeo iframe hasn't signalled a ready state after 6 seconds
+   (e.g. blocked by network / ad-blocker), show the direct MP4 instead.
+   The static Unsplash image behind both acts as ultimate fallback.
+─────────────────────────────────────────────────────────────────── */
+(function setupVideoFallback() {
+  const vimeoFrame = document.getElementById('vimeoFrame');
+  const mp4Video  = document.getElementById('heroMp4');
+  let vimeoLoaded = false;
+
+  // Listen for Vimeo Player API postMessage — fires when video is ready
+  window.addEventListener('message', function(e) {
+    try {
+      const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      if (data && (data.event === 'ready' || data.method === 'play' || data.event === 'play')) {
+        vimeoLoaded = true;
+      }
+    } catch(err) { /* ignore */ }
+  });
+
+  // Timeout: after 6s, if Vimeo hasn't confirmed playback, switch to MP4
+  setTimeout(function() {
+    if (!vimeoLoaded) {
+      vimeoFrame.style.display = 'none';
+      mp4Video.style.display   = 'block';
+      mp4Video.load();
+      mp4Video.play().catch(() => {
+        // Browser blocked autoplay — video stays hidden, fallback image shows
+        mp4Video.style.display = 'none';
+      });
+    }
+  }, 6000);
+
+  // Also try to load MP4 immediately if iframe errors
+  vimeoFrame.addEventListener('error', function() {
+    vimeoFrame.style.display = 'none';
+    mp4Video.style.display   = 'block';
+    mp4Video.load();
+    mp4Video.play().catch(() => {});
+  });
+})();
 
 /* ── SPA ROUTING ── */
 function showPage(pageId, scrollToSection) {
@@ -1744,11 +1827,8 @@ window.addEventListener('scroll', () => {
   geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
   const mat = new THREE.PointsMaterial({
-    color: 0xc9a84c,
-    size: 0.014,
-    transparent: true,
-    opacity: 0.6,
-    sizeAttenuation: true
+    color: 0xc9a84c, size: 0.014,
+    transparent: true, opacity: 0.6, sizeAttenuation: true
   });
 
   const particles = new THREE.Points(geo, mat);
@@ -1801,9 +1881,7 @@ document.querySelectorAll('.fleet-card').forEach(card => {
     const y = (e.clientY - rect.top) / rect.height - 0.5;
     card.style.transform = `perspective(1000px) rotateY(${x * 6}deg) rotateX(${-y * 4}deg) scale(1.02) translateY(-4px)`;
   });
-  card.addEventListener('mouseleave', () => {
-    card.style.transform = '';
-  });
+  card.addEventListener('mouseleave', () => { card.style.transform = ''; });
 });
 
 /* ── MAGNETIC BUTTONS ── */
@@ -1814,16 +1892,8 @@ document.querySelectorAll('.btn').forEach(btn => {
     const y = (e.clientY - rect.top - rect.height / 2) * 0.25;
     btn.querySelector('span').style.transform = `translate(${x}px, ${y}px)`;
   });
-  btn.addEventListener('mouseleave', e => {
-    btn.querySelector('span').style.transform = '';
-  });
+  btn.addEventListener('mouseleave', () => { btn.querySelector('span').style.transform = ''; });
 });
-
-/* ── TEXT SPLIT ANIMATION FOR HERO ── */
-(function splitHeroTitle() {
-  const title = document.querySelector('.hero-title');
-  if (!title) return;
-})();
 
 /* ── COUNTER ANIMATION ── */
 function animateCounter(el, target, suffix = '') {
@@ -1840,8 +1910,6 @@ function animateCounter(el, target, suffix = '') {
     }
   }, 16);
 }
-
-// Trigger counters when hero stats come into view
 const statNums = document.querySelectorAll('.stat-chip .num[data-count]');
 const counterObs = new IntersectionObserver(entries => {
   entries.forEach(entry => {
